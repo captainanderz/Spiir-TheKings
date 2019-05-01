@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
+using System.Text.RegularExpressions;
 using Newtonsoft.Json;
 
 namespace TheKings
@@ -16,15 +17,17 @@ namespace TheKings
             if (!monarchs.Any())
             {
                 // Logging
-                Console.WriteLine("There was no monarchs to be found!");
+                Console.WriteLine("There was no monarchs to be found");
             }
 
             Console.WriteLine($"Monarchs fetched: {monarchs.Count}");
 
-            var longestLastMonarch = monarchs.OrderByDescending(x => x.YearsActive).FirstOrDefault();
-            Console.WriteLine($"Monarch that ruled the longest: {longestLastMonarch.City}. {longestLastMonarch.YearsActive} years active");
+            var longestLastingMonarch = monarchs.OrderByDescending(x => x.YearsActive).FirstOrDefault();
+            Console.WriteLine($"Monarch that ruled the longest: {longestLastingMonarch.Name}. {longestLastingMonarch.YearsActive} years active");
 
-            Console.WriteLine($"House that ruled the longest: {longestLastMonarch.House}. {longestLastMonarch.YearsActive} years active");
+            var longestLastingHouse = monarchs.GroupBy(x => x.House).OrderByDescending(x => x.Sum(y => y.YearsActive)).FirstOrDefault();
+            var longestLastingHouseActiveYearsTotal = monarchs.Where(x => x.House == longestLastingHouse.Key).Sum(y => y.YearsActive);
+            Console.WriteLine($"House that ruled the longest: {longestLastingHouse.Key}. {longestLastingHouseActiveYearsTotal} years active");
 
             var mostCommonFirstName = monarchs.GroupBy(x => x.Name.Split(' ').First()).OrderByDescending(x => x.Count()).FirstOrDefault();
             Console.WriteLine($"Most common first name: {mostCommonFirstName.Key}");
@@ -37,7 +40,7 @@ namespace TheKings
             {
                 // Logging
                 Console.WriteLine("Url was empty");
-                return null;
+                return new List<Monarch>();
             }
 
             using (var client = new HttpClient())
@@ -48,8 +51,8 @@ namespace TheKings
                     if (data == null)
                     {
                         // Logging
-                        Console.WriteLine("No data");
-                        return null;
+                        Console.WriteLine("No data returned from url");
+                        return new List<Monarch>();
                     }
 
                     return JsonConvert.DeserializeObject<List<Monarch>>(data);
@@ -85,14 +88,28 @@ namespace TheKings
                     return _yearsActive.Value;
                 }
 
-                var yearRangeArray = YearRange.Split('-', StringSplitOptions.RemoveEmptyEntries);
-                if (yearRangeArray.Length == 1)
+                switch (YearRange)
                 {
-                    _yearsActive = 1;
-                }
+                    case var fullRange when Regex.IsMatch(YearRange, "^[0-9+]+\\-[0-9]+$"): // matches "anyNum-anyNum"
+                        var yearRangeArray = fullRange.Split('-', StringSplitOptions.RemoveEmptyEntries);
+                        _yearsActive = int.Parse(yearRangeArray.LastOrDefault()) -
+                                       int.Parse(yearRangeArray.FirstOrDefault());
+                        break;
 
-                _yearsActive = int.Parse(yearRangeArray.LastOrDefault()) -
-                               int.Parse(yearRangeArray.FirstOrDefault());
+                    case var _ when Regex.IsMatch(YearRange, "^[0-9+]+$"): // matches any number
+                        _yearsActive = 1;
+                        break;
+
+                    case var looseEndRange when Regex.IsMatch(YearRange, "^[0-9+]+\\-$"): // matches "anyNum-"
+                        var startYear = looseEndRange.TrimEnd('-');
+                        _yearsActive = DateTime.UtcNow.Year - int.Parse(startYear);
+                        break;
+
+                    default:
+                        // Logging
+                        Console.WriteLine($"Monarch with ID: {Id} has an invalid year range: {YearRange}");
+                        break;
+                }
 
                 return _yearsActive.Value;
             }

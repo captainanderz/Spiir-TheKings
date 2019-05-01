@@ -14,7 +14,7 @@ namespace TheKings
             var monarchsUrl = "http://mysafeinfo.com/api/data?list=englishmonarchs&format=json&token=TLuYP52OhIw24TQSYqexw0q5k1zoPS2P";
 
             var monarchs = GetMonarchsFromUrl(monarchsUrl);
-            if (!monarchs.Any())
+            if (monarchs == null || !monarchs.Any())
             {
                 // Logging
                 Console.WriteLine("There was no monarchs to be found");
@@ -40,7 +40,7 @@ namespace TheKings
             {
                 // Logging
                 Console.WriteLine("Url was empty");
-                return new List<Monarch>();
+                return null;
             }
 
             using (var client = new HttpClient())
@@ -52,7 +52,7 @@ namespace TheKings
                     {
                         // Logging
                         Console.WriteLine("No data returned from url");
-                        return new List<Monarch>();
+                        return null;
                     }
 
                     return JsonConvert.DeserializeObject<List<Monarch>>(data);
